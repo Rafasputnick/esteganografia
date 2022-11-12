@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "compile",
-        "command": "make main",
+        "command": "make main.out",
         "type": "shell",
         "presentation": {
             "echo": false,

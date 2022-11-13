@@ -9,9 +9,9 @@
             "type": "gdb",
             "request": "launch",
             "target": "./main.out",
-            "arguments": "arg1 arg2 arg3",
+            "arguments": "original-zebras.bmp",
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "compile",
+            "preLaunchTask": "build",
             "valuesFormatting": "parseText"
         }
     ]

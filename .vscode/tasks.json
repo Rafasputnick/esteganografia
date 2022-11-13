@@ -12,5 +12,26 @@
             "showReuseMessage": true,
             "clear": true 
         }
-    }]
+    },
+    {
+        "label": "format",
+        "command": "clang-format -i *.c",
+        "type": "shell",
+        "presentation": {
+            "echo": false,
+            "reveal": "never",
+            "focus": false,
+            "panel": "shared",
+            "showReuseMessage": true,
+            "clear": true 
+        }
+    },
+    {
+        "label": "build",
+        "dependsOn": [
+            "format",
+            "compile"
+        ]
+    }
+    ]
 }

@@ -1,6 +1,6 @@
 .PHONY: run
 
-run: main
+run: main.out
 	./main.out original-zebras.bmp
 
 main.out: main.c

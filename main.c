@@ -16,20 +16,6 @@ int getBit(uint8_t byte, uint8_t bit) {
 }
 
 #define READ_BINARY "rb"
-#define BPM_HEADER_SIZE 14
-#define DIB_HEADER_SIZE 12
-
-#define FILE_TYPE_INDEX 0
-#define FILE_TYPE_SIZE 2
-
-#define FILE_SIZE_INDEX 2
-#define BITMAP_INDEX 10
-
-#define HEADER_INDEX 0
-#define BM_WIDTH_INDEX 4
-#define BM_HEIGHT_INDEX 6
-#define COLOR_PLANES_INDEX 8
-#define BIT_PER_PIXEL_INDEX 10
 
 typedef struct BmpHeader {
   char *fileType;

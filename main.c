@@ -15,7 +15,6 @@ int getBit(uint8_t byte, uint8_t bit) {
   return shefittedByte & 1;
 }
 
-
 typedef struct BmpHeader {
   char *fileType;
   uint32_t fSize;
@@ -80,7 +79,6 @@ int main(int argc, const char *argv[]) {
   char *filePath = (char *)argv[1];
   printf("\nReading: %s\n", filePath);
   FILE *filePointer = fopen(filePath, "r+");
-
 
   if (filePointer == NULL) {
     exitWithError(filePointer, "Error: Opening file");

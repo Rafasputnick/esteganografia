@@ -15,7 +15,6 @@ int getBit(uint8_t byte, uint8_t bit) {
   return shefittedByte & 1;
 }
 
-#define READ_BINARY "rb"
 
 typedef struct BmpHeader {
   char *fileType;
@@ -80,7 +79,8 @@ int main(int argc, const char *argv[]) {
 
   char *filePath = (char *)argv[1];
   printf("\nReading: %s\n", filePath);
-  FILE *filePointer = fopen(filePath, READ_BINARY);
+  FILE *filePointer = fopen(filePath, "r+");
+
 
   if (filePointer == NULL) {
     exitWithError(filePointer, "Error: Opening file");
@@ -88,6 +88,31 @@ int main(int argc, const char *argv[]) {
 
   getBmpHeader(filePointer, bmpHeader);
   getDibHeader(filePointer, dibHeader);
+
+  fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
+
+  uint32_t bytesInBitMap =
+      dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
+
+  for (int i = 0; i < 10000; i++) {
+
+    uint8_t teste;
+    fread(&teste, 1, 1, filePointer);
+
+    fseek(filePointer, -1, SEEK_CUR);
+
+    if (getBit(teste, 1) == 0) {
+      teste += 1;
+    }
+
+    fputc(teste, filePointer);
+
+    fseek(filePointer, -1, SEEK_CUR);
+
+    fread(&teste, 1, 1, filePointer);
+
+    printf("%d\n", teste);
+  }
 
   free(bmpHeader->fileType);
   free(bmpHeader->reserveds);

@@ -9,7 +9,7 @@
             "type": "gdb",
             "request": "launch",
             "target": "./main.out",
-            "arguments": "original-zebras.bmp",
+            "arguments": "original-zebras_copy.bmp",
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",
             "valuesFormatting": "parseText"

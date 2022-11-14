@@ -32,9 +32,9 @@ int getBit(uint8_t byte, uint8_t bit) {
 #define BIT_PER_PIXEL_INDEX 10
 
 typedef struct BmpHeader {
-  char fileType[2];
+  char *fileType;
   uint32_t fSize;
-  uint16_t reserveds[2];
+  uint16_t *reserveds;
   uint32_t bitmapAddress;
 } bmp_header;
 
@@ -46,38 +46,46 @@ typedef struct DibHeader {
   uint16_t bitPerPixel;
 } dib_header;
 
-void exitWithError(FILE *file, char *msg) {
+void exitWithError(FILE *filePointer, char *msg) {
   printf("%s\n", msg);
-  fclose(file);
+  fclose(filePointer);
   exit(1);
 }
 
-void getBmpHeader(char *headerBuffer, bmp_header *header) {
-  memcpy(header->fileType, ((char *)(headerBuffer + FILE_TYPE_INDEX)),
-         FILE_TYPE_SIZE);
-
-  header->fSize = *((uint32_t *)(headerBuffer + FILE_SIZE_INDEX));
-
-  header->bitmapAddress = *((uint32_t *)(headerBuffer + BITMAP_INDEX));
+void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes) {
+  fread(value, 1, howMuchBytes, filePointer);
 }
 
-void getDibHeader(char *headerBuffer, dib_header *header) {
+void getBmpHeader(FILE *filePointer, bmp_header *header) {
+  getBytesFromFile(filePointer, header->fileType, 2);
 
-  header->headerSize = *((uint32_t *)(headerBuffer + HEADER_INDEX));
+  getBytesFromFile(filePointer, ((char *)&header->fSize), 4);
 
-  header->bmWidth = *((uint16_t *)(headerBuffer + BM_WIDTH_INDEX));
+  getBytesFromFile(filePointer, ((char *)header->reserveds), 2);
+  getBytesFromFile(filePointer, ((char *)header->reserveds + 1), 2);
 
-  header->bmHeight = *((uint16_t *)(headerBuffer + BM_HEIGHT_INDEX));
+  getBytesFromFile(filePointer, ((char *)&header->bitmapAddress), 4);
+}
 
-  header->colorPlanes = *((uint16_t *)(headerBuffer + COLOR_PLANES_INDEX));
+void getDibHeader(FILE *filePointer, dib_header *header) {
 
-  header->bitPerPixel = *((uint16_t *)(headerBuffer + BIT_PER_PIXEL_INDEX));
+  getBytesFromFile(filePointer, ((char *)&header->headerSize), 4);
+
+  getBytesFromFile(filePointer, ((char *)&header->bmWidth), 4);
+
+  getBytesFromFile(filePointer, ((char *)&header->bmHeight), 4);
+
+  getBytesFromFile(filePointer, ((char *)&header->colorPlanes), 2);
+
+  getBytesFromFile(filePointer, ((char *)&header->bitPerPixel), 2);
 }
 
 int main(int argc, const char *argv[]) {
-  size_t resultSize;
-  bmp_header *bh = malloc(sizeof(bmp_header));
-  dib_header *dh = malloc(sizeof(dib_header));
+  bmp_header *bmpHeader = malloc(sizeof(bmp_header));
+  bmpHeader->fileType = malloc(sizeof(char) * 3);
+  bmpHeader->reserveds = malloc(sizeof(uint16_t) * 2);
+
+  dib_header *dibHeader = malloc(sizeof(dib_header));
 
   if (argc < 2) {
     printf("Error: BMP path not found in arguments");
@@ -85,41 +93,21 @@ int main(int argc, const char *argv[]) {
   }
 
   char *filePath = (char *)argv[1];
-  printf("\n%s\n", filePath);
-  FILE *file = fopen(filePath, READ_BINARY);
+  printf("\nReading: %s\n", filePath);
+  FILE *filePointer = fopen(filePath, READ_BINARY);
 
-  if (file == NULL) {
-    exitWithError(file, "Error: Opening file");
+  if (filePointer == NULL) {
+    exitWithError(filePointer, "Error: Opening file");
   }
 
-  char *bhBuffer = (char *)malloc(sizeof(char) * BPM_HEADER_SIZE);
-  if (bhBuffer == NULL) {
-    exitWithError(file, "Error: Malloc return null");
-  }
+  getBmpHeader(filePointer, bmpHeader);
+  getDibHeader(filePointer, dibHeader);
 
-  resultSize = fread(bhBuffer, 1, BPM_HEADER_SIZE, file);
-  if (resultSize != BPM_HEADER_SIZE) {
-    exitWithError(file, "Error: Reading file");
-  }
+  free(bmpHeader->fileType);
+  free(bmpHeader->reserveds);
+  free(bmpHeader);
+  free(dibHeader);
 
-  getBmpHeader(bhBuffer, bh);
-
-  char *dhBuffer = (char *)malloc(sizeof(char) * DIB_HEADER_SIZE);
-  if (dhBuffer == NULL) {
-    exitWithError(file, "Error: Malloc return null");
-  }
-
-  resultSize = fread(dhBuffer, 1, DIB_HEADER_SIZE, file);
-  if (resultSize != DIB_HEADER_SIZE) {
-    exitWithError(file, "Error: Reading file");
-  }
-
-  getDibHeader(bhBuffer, dh);
-
-  fclose(file);
-  free(bh);
-  free(dh);
-  free(bhBuffer);
-  free(dhBuffer);
+  fclose(filePointer);
   exit(0);
 }

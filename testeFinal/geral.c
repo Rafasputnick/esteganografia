@@ -3,11 +3,20 @@
 // https://docs.fileformat.com/image/bmp/
 // https://stackoverflow.com/questions/14279242/read-bitmap-file-into-structure
 // https://en.wikipedia.org/wiki/BMP_file_format
+// https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
+#define FUSE_USE_VERSION 30
 
+#include <errno.h>
+#include <fuse.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+
+// Manipulando o bmp
 
 int getBit(uint8_t byte, uint8_t bit) {
   uint8_t bitsAtRigth = bit - 1;
@@ -15,20 +24,21 @@ int getBit(uint8_t byte, uint8_t bit) {
   return shefittedByte & 1;
 }
 
-char **dir_list;
 
 typedef union {
   unsigned char bytes[2];
   int16_t valor;
 } byteIntoTwoBytes;
 
-int16_t curr_dir_idx;
 
-char **files_list;
-int16_t curr_file_idx;
+char dir_list[256][256];
+int16_t curr_dir_idx = -1;
 
-char **files_content;
-int16_t curr_file_content_idx;
+char **files_list[256][256];
+int16_t curr_file_idx = -1;
+
+char **files_content[256][256];
+int16_t curr_file_content_idx = -1;
 
 char message[256] = "Isto eh uma mensagem";
 
@@ -167,8 +177,152 @@ void readLsbMethodHeader(FILE *filePointer) {
   curr_file_content_idx = aux.valor;
 }
 
-int main(int argc, char *argv[]) {
+/////////////////////////////////////////////////////////////////////
 
+// Trabalhando com o diretorio (libfuse)
+
+void add_dir(const char *dir_name) {
+  curr_dir_idx++;
+  strcpy(dir_list[curr_dir_idx], dir_name);
+}
+
+int is_dir(const char *path) {
+  path++; // Eliminating "/" in the path
+
+  for (int curr_idx = 0; curr_idx <= curr_dir_idx; curr_idx++)
+    if (strcmp(path, dir_list[curr_idx]) == 0)
+      return 1;
+
+  return 0;
+}
+
+void add_file(const char *filename) {
+  curr_file_idx++;
+  strcpy(files_list[curr_file_idx], filename);
+
+  curr_file_content_idx++;
+  strcpy(files_content[curr_file_content_idx], "");
+}
+
+int is_file(const char *path) {
+  path++; // Eliminating "/" in the path
+
+  for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
+    if (strcmp(path, files_list[curr_idx]) == 0)
+      return 1;
+
+  return 0;
+}
+
+int get_file_index(const char *path) {
+  path++; // Eliminating "/" in the path
+
+  for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
+    if (strcmp(path, files_list[curr_idx]) == 0)
+      return curr_idx;
+
+  return -1;
+}
+
+void write_to_file(const char *path, const char *new_content) {
+  int file_idx = get_file_index(path);
+
+  if (file_idx == -1) // No such file
+    return;
+
+  strcpy(files_content[file_idx], new_content);
+}
+
+static int do_getattr(const char *path, struct stat *st) {
+  st->st_uid = getuid(); // The owner of the file/directory is the user who
+                         // mounted the filesystem
+  st->st_gid = getgid(); // The group of the file/directory is the same as the
+                         // group of the user who mounted the filesystem
+  st->st_atime =
+      time(NULL); // The last "a"ccess of the file/directory is right now
+  st->st_mtime =
+      time(NULL); // The last "m"odification of the file/directory is right now
+
+  if (strcmp(path, "/") == 0 || is_dir(path) == 1) {
+    st->st_mode = S_IFDIR | 0755;
+    st->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is
+                      // here: http://unix.stackexchange.com/a/101536
+  } else if (is_file(path) == 1) {
+    st->st_mode = S_IFREG | 0644;
+    st->st_nlink = 1;
+    st->st_size = 1024;
+  } else {
+    return -ENOENT;
+  }
+
+  return 0;
+}
+
+static int do_readdir(const char *path, void *buffer, fuse_fill_dir_t filler,
+                      off_t offset, struct fuse_file_info *fi) {
+  filler(buffer, ".", NULL, 0);  // Current Directory
+  filler(buffer, "..", NULL, 0); // Parent Directory
+
+  if (strcmp(path, "/") ==
+      0) // If the user is trying to show the files/directories of the root
+         // directory show the following
+  {
+    for (int curr_idx = 0; curr_idx <= curr_dir_idx; curr_idx++)
+      filler(buffer, dir_list[curr_idx], NULL, 0);
+
+    for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
+      filler(buffer, files_list[curr_idx], NULL, 0);
+  }
+
+  return 0;
+}
+
+static int do_read(const char *path, char *buffer, size_t size, off_t offset,
+                   struct fuse_file_info *fi) {
+  int file_idx = get_file_index(path);
+
+  if (file_idx == -1)
+    return -1;
+
+  char *content = files_content[file_idx];
+
+  memcpy(buffer, content + offset, size);
+
+  return strlen(content) - offset;
+}
+
+static int do_mkdir(const char *path, mode_t mode) {
+  path++;
+  add_dir(path);
+
+  return 0;
+}
+
+static int do_mknod(const char *path, mode_t mode, dev_t rdev) {
+  path++;
+  add_file(path);
+
+  return 0;
+}
+
+static int do_write(const char *path, const char *buffer, size_t size,
+                    off_t offset, struct fuse_file_info *info) {
+  write_to_file(path, buffer);
+
+  return size;
+}
+
+static struct fuse_operations operations = {
+    .getattr = do_getattr,
+    .readdir = do_readdir,
+    .read = do_read,
+    .mkdir = do_mkdir,
+    .mknod = do_mknod,
+    .write = do_write,
+};
+
+int main(int argc, char **argv) {
+  /*
   initialize();
 
   bmp_header *bmpHeader = malloc(sizeof(bmp_header));
@@ -177,12 +331,13 @@ int main(int argc, char *argv[]) {
 
   dib_header *dibHeader = malloc(sizeof(dib_header));
 
-  if (argc < 3) {
+  if (argc < 4) {
     printf("Error: BMP path not found in arguments");
     exit(1);
   }
 
-  char *filePath = (char *)argv[2];
+  char *filePath = (char *)argv[3];
+  printf("%s\n", filePath);
   printf("\nReading: %s\n", filePath);
   FILE *filePointer = fopen(filePath, "r+");
 
@@ -199,7 +354,7 @@ int main(int argc, char *argv[]) {
       dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
 
   // open and start
-  char *option = (char *)argv[1];
+  char *option = (char *)argv[4];
   if ((strcmp(option, "start") == 0)) {
     createLsbMethodHeader(filePointer);
     fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
@@ -207,38 +362,24 @@ int main(int argc, char *argv[]) {
 
   readLsbMethodHeader(filePointer);
 
-  /*
-  for (int i = 0; i < 10000; i++) {
-
-    uint8_t teste;
-    fread(&teste, 1, 1, filePointer);
-
-    fseek(filePointer, -1, SEEK_CUR);
-
-    if (getBit(teste, 1) == 0) {
-      teste += 1;
-    }
-
-    fputc(teste, filePointer);
-
-    fseek(filePointer, -1, SEEK_CUR);
-
-    fread(&teste, 1, 1, filePointer);
-
-    printf("%d\n", teste);
-  }
-  */
-
+  
   freeMatrixs();
   free(bmpHeader->fileType);
   free(bmpHeader->reserveds);
   free(bmpHeader);
   free(dibHeader);
 
-  argc = 2;
-  argv[1] = "\0";
-  argv[0] = "\0";
-
   fclose(filePointer);
-  exit(0);
+  
+
+    printf("\n\nopaaaa\n\n");
+
+  char **auxArgv;
+  argv = malloc(sizeof(*argv) * 3);
+  for (int i = 0; i < 3; i++) {
+    auxArgv[i] = malloc(sizeof(*auxArgv[i]));
+    strcpy( auxArgv[i] , argv[i]);
+  }
+*/
+  return fuse_main(argc, argv, &operations, NULL);
 }

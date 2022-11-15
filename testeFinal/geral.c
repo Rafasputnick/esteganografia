@@ -24,23 +24,31 @@ int getBit(uint8_t byte, uint8_t bit) {
   return shefittedByte & 1;
 }
 
-
 typedef union {
   unsigned char bytes[2];
   int16_t valor;
 } byteIntoTwoBytes;
 
+char **dir_list;
+int16_t curr_dir_idx;
 
-char dir_list[256][256];
-int16_t curr_dir_idx = -1;
+char **files_list;
+int16_t curr_file_idx;
 
-char **files_list[256][256];
-int16_t curr_file_idx = -1;
+char **files_content;
+int16_t curr_file_content_idx;
 
-char **files_content[256][256];
-int16_t curr_file_content_idx = -1;
+enum lsbHeaderIndex {
 
-char message[256] = "Isto eh uma mensagem";
+  DIRR_IDX = 0,
+
+  FILE_IDX = 1,
+
+  FILE_CONTENT_IDX = 2
+
+};
+
+FILE *filePointer;
 
 typedef struct BmpHeader {
   char *fileType;
@@ -56,6 +64,9 @@ typedef struct DibHeader {
   uint16_t colorPlanes;
   uint16_t bitPerPixel;
 } dib_header;
+
+bmp_header *bmpHeader;
+dib_header *dibHeader;
 
 void exitWithError(FILE *filePointer, char *msg) {
   printf("%s\n", msg);
@@ -146,35 +157,54 @@ int8_t getByteWithLsbMethod(FILE *filePointer) {
   return res;
 }
 
-void createLsbMethodHeader(FILE *filePointer) {
+void updateLsbHeaderValue(int16_t valor) {
   byteIntoTwoBytes aux;
-  aux.valor = -1;
+  aux.valor = valor;
 
-  for (int i = 0; i < 3; i++) {
-    for (int j = 0; j < 2; j++) {
-      putByteWithLsbMethod(aux.bytes[j], filePointer);
-    }
+  for (int j = 0; j < 2; j++) {
+    putByteWithLsbMethod(aux.bytes[j], filePointer);
   }
 }
 
-void readLsbMethodHeader(FILE *filePointer) {
+void createLsbMethodHeader(FILE *filePointer) {
+  updateLsbHeaderValue(-1);
+  updateLsbHeaderValue(-1);
+  updateLsbHeaderValue(-1);
+}
+
+void setLshHeaderValue(int16_t *value) {
   byteIntoTwoBytes aux;
 
   aux.bytes[0] = getByteWithLsbMethod(filePointer);
   aux.bytes[1] = getByteWithLsbMethod(filePointer);
-  curr_dir_idx = aux.valor;
+  *value = aux.valor;
+}
 
-  aux.valor = 0;
+void readLsbMethodHeader(FILE *filePointer) {
+  setLshHeaderValue(&curr_dir_idx);
+  setLshHeaderValue(&curr_file_idx);
+  setLshHeaderValue(&curr_file_content_idx);
+}
 
-  aux.bytes[0] = getByteWithLsbMethod(filePointer);
-  aux.bytes[1] = getByteWithLsbMethod(filePointer);
-  curr_file_idx = aux.valor;
-
-  aux.valor = 0;
-
-  aux.bytes[0] = getByteWithLsbMethod(filePointer);
-  aux.bytes[1] = getByteWithLsbMethod(filePointer);
-  curr_file_content_idx = aux.valor;
+void updateLsbHeader(uint8_t index) {
+  switch (index) {
+  case DIRR_IDX:
+    fseek(filePointer, bmpHeader->bitmapAddress + (DIRR_IDX * sizeof(int16_t)),
+          SEEK_SET);
+    updateLsbHeaderValue(curr_dir_idx);
+    break;
+  case FILE_IDX:
+    fseek(filePointer, bmpHeader->bitmapAddress + (FILE_IDX * sizeof(int16_t)),
+          SEEK_SET);
+    updateLsbHeaderValue(curr_file_idx);
+    break;
+  case FILE_CONTENT_IDX:
+    fseek(filePointer,
+          bmpHeader->bitmapAddress + (FILE_CONTENT_IDX * sizeof(int16_t)),
+          SEEK_SET);
+    updateLsbHeaderValue(curr_file_content_idx);
+    break;
+  }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -183,6 +213,8 @@ void readLsbMethodHeader(FILE *filePointer) {
 
 void add_dir(const char *dir_name) {
   curr_dir_idx++;
+  updateLsbHeader(DIRR_IDX);
+
   strcpy(dir_list[curr_dir_idx], dir_name);
 }
 
@@ -312,24 +344,36 @@ static int do_write(const char *path, const char *buffer, size_t size,
   return size;
 }
 
-static struct fuse_operations operations = {
-    .getattr = do_getattr,
-    .readdir = do_readdir,
-    .read = do_read,
-    .mkdir = do_mkdir,
-    .mknod = do_mknod,
-    .write = do_write,
-};
+static void do_destroy() {
+  printf("\nDestroying mallocs\n");
+  freeMatrixs();
+  free(bmpHeader->fileType);
+  free(bmpHeader->reserveds);
+  free(bmpHeader);
+  free(dibHeader);
+
+  fclose(filePointer);
+}
+
+static struct fuse_operations operations = {.getattr = do_getattr,
+                                            .readdir = do_readdir,
+                                            .read = do_read,
+
+                                            .mkdir = do_mkdir,
+
+                                            .mknod = do_mknod,
+                                            .write = do_write,
+
+                                            .destroy = do_destroy};
 
 int main(int argc, char **argv) {
-  /*
   initialize();
 
-  bmp_header *bmpHeader = malloc(sizeof(bmp_header));
+  bmpHeader = malloc(sizeof(bmp_header));
   bmpHeader->fileType = malloc(sizeof(char) * 3);
   bmpHeader->reserveds = malloc(sizeof(uint16_t) * 2);
 
-  dib_header *dibHeader = malloc(sizeof(dib_header));
+  dibHeader = malloc(sizeof(dib_header));
 
   if (argc < 4) {
     printf("Error: BMP path not found in arguments");
@@ -337,9 +381,8 @@ int main(int argc, char **argv) {
   }
 
   char *filePath = (char *)argv[3];
-  printf("%s\n", filePath);
   printf("\nReading: %s\n", filePath);
-  FILE *filePointer = fopen(filePath, "r+");
+  filePointer = fopen(filePath, "r+");
 
   if (filePointer == NULL) {
     exitWithError(filePointer, "Error: Opening file");
@@ -354,32 +397,26 @@ int main(int argc, char **argv) {
       dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
 
   // open and start
-  char *option = (char *)argv[4];
-  if ((strcmp(option, "start") == 0)) {
-    createLsbMethodHeader(filePointer);
-    fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
+  if (argc == 5) {
+    char *option = (char *)argv[4];
+    if ((strcmp(option, "-s") == 0)) {
+      createLsbMethodHeader(filePointer);
+      fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
+    }
+  }
+
+  if (argc == 5) {
+    char *option = (char *)argv[4];
+    if ((strcmp(option, "-s") == 0)) {
+      createLsbMethodHeader(filePointer);
+      fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
+    }
   }
 
   readLsbMethodHeader(filePointer);
 
-  
-  freeMatrixs();
-  free(bmpHeader->fileType);
-  free(bmpHeader->reserveds);
-  free(bmpHeader);
-  free(dibHeader);
+  argc = 3;
 
-  fclose(filePointer);
-  
-
-    printf("\n\nopaaaa\n\n");
-
-  char **auxArgv;
-  argv = malloc(sizeof(*argv) * 3);
-  for (int i = 0; i < 3; i++) {
-    auxArgv[i] = malloc(sizeof(*auxArgv[i]));
-    strcpy( auxArgv[i] , argv[i]);
-  }
-*/
+  printf("\nDirectory starts:\n\n");
   return fuse_main(argc, argv, &operations, NULL);
 }

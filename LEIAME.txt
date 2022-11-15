@@ -1,2 +1,9 @@
 
 make run args="arg1 arg2"
+
+gcc lsysfs.c -o lsysfs `pkg-config fuse --cflags --libs`
+./lsysfs -f [mount point]
+
+sudo umount -l ./dir1
+
+fusermount -u ./dir1

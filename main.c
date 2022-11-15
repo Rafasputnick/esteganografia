@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  char *filePath = (char *)argv[2];
+  char *filePath = (char *)argv[1];
   printf("\nReading: %s\n", filePath);
   FILE *filePointer = fopen(filePath, "r+");
 
@@ -199,8 +199,8 @@ int main(int argc, char *argv[]) {
       dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
 
   // open and start
-  char *option = (char *)argv[1];
-  if ((strcmp(option, "start") == 0)) {
+  char *option = (char *)argv[2];
+  if ((strcmp(option, "-s") == 0)) {
     createLsbMethodHeader(filePointer);
     fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
   }

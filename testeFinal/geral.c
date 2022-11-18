@@ -190,11 +190,7 @@ void readLsbMethodHeader(FILE *filePointer) {
 }
 
 void setLshContentValue(int16_t *value) {
-  byteIntoTwoBytes aux;
-
-  aux.bytes[0] = getByteWithLsbMethod(filePointer);
-  aux.bytes[1] = getByteWithLsbMethod(filePointer);
-  *value = aux.valor;
+  getByteWithLsbMethod(filePointer);
 }
 
 void  readContentInFIle() {

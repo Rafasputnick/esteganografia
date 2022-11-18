@@ -9,7 +9,7 @@
             "type": "gdb",
             "request": "launch",
             "target": "testeFinal/geral",
-            "arguments": "-f testeFinal/dir1/ -d -s testeFinal/original-zebras_copy.bmp -s",
+            "arguments": "-f testeFinal/dir1/ -d -s testeFinal/original-zebras_copy.bmp",
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",
             "valuesFormatting": "parseText"

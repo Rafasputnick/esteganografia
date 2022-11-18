@@ -5,11 +5,12 @@
 // https://en.wikipedia.org/wiki/BMP_file_format
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 #define FUSE_USE_VERSION 30
-#define MATRIX_CONTENT_VALUE 128 * 128
+#define MATRIX_CONTENT_VALUE 10 * 10
 #define LSB_HEADER_SIZE 6
 
 #include <errno.h>
 #include <fuse.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,12 +43,11 @@ int16_t curr_file_content_idx;
 
 enum lsbHeaderIndex {
 
-  DIRR_IDX = 0,
+  DIRR_IDX,
 
-  FILE_IDX = 1,
+  FILE_IDX,
 
-  FILE_CONTENT_IDX = 2
-
+  FILE_CONTENT_IDX
 };
 
 FILE *filePointer;
@@ -74,7 +74,7 @@ uint64_t getIndexValue(int matrixIndex, uint16_t curr_idx) {
   uint64_t pointerIndex =
       (bmpHeader->bitmapAddress +
        ((LSB_HEADER_SIZE + (MATRIX_CONTENT_VALUE * matrixIndex) +
-         (128 * curr_idx)) *
+         (10 * curr_idx)) *
         8));
   return pointerIndex;
 }
@@ -114,19 +114,19 @@ void getDibHeader(FILE *filePointer, dib_header *header) {
 }
 
 void initialize() {
-  dir_list = malloc(sizeof(*dir_list) * 128);
-  files_list = malloc(sizeof(*files_list) * 128);
-  files_content_list = malloc(sizeof(*files_content_list) * 128);
+  dir_list = malloc(sizeof(*dir_list) * 10);
+  files_list = malloc(sizeof(*files_list) * 10);
+  files_content_list = malloc(sizeof(*files_content_list) * 10);
 
-  for (int i = 0; i < 128; i++) {
-    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 128);
-    files_list[i] = malloc(sizeof(*(files_list[i])) * 128);
-    files_content_list[i] = malloc(sizeof(*(files_content_list[i])) * 128);
+  for (int i = 0; i < 10; i++) {
+    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 10);
+    files_list[i] = malloc(sizeof(*(files_list[i])) * 10);
+    files_content_list[i] = malloc(sizeof(*(files_content_list[i])) * 10);
   }
 }
 
 void freeMatrixs() {
-  for (int i = 127; i >= 0; i--) {
+  for (int i = 9; i >= 0; i--) {
     free(dir_list[i]);
     free(files_list[i]);
     free(files_content_list[i]);
@@ -150,7 +150,7 @@ void putByteWithLsbMethod(int8_t byteForLsb, FILE *filePointer) {
         cur_byte--;
       }
     }
-    fputc((char)cur_byte, filePointer);
+    fputc(cur_byte, filePointer);
   }
 }
 
@@ -198,10 +198,9 @@ void readLsbMethodHeader(FILE *filePointer) {
 }
 
 void setLshContentValue(char **value, int16_t maxIndex) {
-  //////////////////////////////////////////////////////////////////////////////
-  char byte = '\n';
+  char byte;
   for (int i = 0; i <= maxIndex; i++) {
-    for (int j = 0; j < 128; j++) {
+    for (int j = 0; j < 8; j++) {
       byte = getByteWithLsbMethod(filePointer);
       value[i][j] = byte;
     }
@@ -243,7 +242,7 @@ void updateLsbHeader(uint8_t index) {
 }
 
 void updateLsbContent(char *content) {
-  for (int i = 0; i < 50; i++) {
+  for (int i = 0; i < 8; i++) {
     putByteWithLsbMethod(content[i], filePointer);
   }
 }
@@ -282,7 +281,7 @@ void add_file(const char *filename) {
   curr_file_content_idx++;
   updateLsbHeader(FILE_CONTENT_IDX);
 
-  strcpy(files_content_list[curr_file_content_idx], "");
+  strcpy(files_content_list[curr_file_content_idx], "\0");
   fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, curr_file_content_idx),
         SEEK_SET);
   updateLsbContent(files_content_list[curr_file_content_idx]);

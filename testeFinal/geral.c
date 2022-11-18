@@ -5,6 +5,7 @@
 // https://en.wikipedia.org/wiki/BMP_file_format
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 #define FUSE_USE_VERSION 30
+#define MATRIX_CONTENT_VALUE 256 * 256
 
 #include <errno.h>
 #include <fuse.h>
@@ -37,6 +38,8 @@ int16_t curr_file_idx;
 
 char **files_content;
 int16_t curr_file_content_idx;
+
+
 
 enum lsbHeaderIndex {
 
@@ -186,6 +189,20 @@ void readLsbMethodHeader(FILE *filePointer) {
   setLshHeaderValue(&curr_file_content_idx);
 }
 
+void setLshContentValue(int16_t *value) {
+  byteIntoTwoBytes aux;
+
+  aux.bytes[0] = getByteWithLsbMethod(filePointer);
+  aux.bytes[1] = getByteWithLsbMethod(filePointer);
+  *value = aux.valor;
+}
+
+void  readContentInFIle() {
+  setLshContentValue(&curr_dir_idx);
+  setLshContentValue(&curr_dir_idx);
+  setLshContentValue(&curr_dir_idx);
+}
+
 void updateLsbHeader(uint8_t index) {
   switch (index) {
   case DIRR_IDX:
@@ -207,15 +224,28 @@ void updateLsbHeader(uint8_t index) {
   }
 }
 
+void updateLsbContent(char *content){
+  for (int i = 0; content[i] != '\0'; i++){
+    putByteWithLsbMethod(content[i], filePointer);
+  }
+}
+
 /////////////////////////////////////////////////////////////////////
 
 // Trabalhando com o diretorio (libfuse)
+
+uint32_t getIndexValue(uint16_t matrixIndex, uint16_t curr_idx){
+  uint32_t  pointerIndex = bmpHeader->bitmapAddress + (MATRIX_CONTENT_VALUE * matrixIndex) + (256 * curr_idx);
+  return pointerIndex;
+}
 
 void add_dir(const char *dir_name) {
   curr_dir_idx++;
   updateLsbHeader(DIRR_IDX);
 
   strcpy(dir_list[curr_dir_idx], dir_name);
+  fseek(filePointer, getIndexValue(DIRR_IDX, curr_dir_idx) , SEEK_SET);
+  updateLsbContent(dir_list[curr_dir_idx]);
 }
 
 int is_dir(const char *path) {
@@ -380,7 +410,7 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  char *filePath = (char *)argv[3];
+  char *filePath = (char *)argv[5];
   printf("\nReading: %s\n", filePath);
   filePointer = fopen(filePath, "r+");
 
@@ -397,16 +427,8 @@ int main(int argc, char **argv) {
       dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
 
   // open and start
-  if (argc == 5) {
-    char *option = (char *)argv[4];
-    if ((strcmp(option, "-s") == 0)) {
-      createLsbMethodHeader(filePointer);
-      fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
-    }
-  }
-
-  if (argc == 5) {
-    char *option = (char *)argv[4];
+  if (argc == 7) {
+    char *option = (char *)argv[6];
     if ((strcmp(option, "-s") == 0)) {
       createLsbMethodHeader(filePointer);
       fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
@@ -414,8 +436,9 @@ int main(int argc, char **argv) {
   }
 
   readLsbMethodHeader(filePointer);
+  readContentInFIle();
 
-  argc = 3;
+  argc = 5;
 
   printf("\nDirectory starts:\n\n");
   return fuse_main(argc, argv, &operations, NULL);

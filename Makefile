@@ -1,10 +1,13 @@
-.PHONY: run debugGeral clean
+.PHONY: run debugGeral clean clean_f
 
 debugGeral:
-	gcc -g testeFinal/geral.c -o testeFinal/geral `pkg-config fuse --cflags --libs`
+	gcc -W -Wall -pedantic -g testeFinal/geral.c -o testeFinal/geral `pkg-config fuse --cflags --libs`
 	
 
 clean:
+	fusermount -u ./dir1
+
+clean_f:
 	sudo umount -l testeFinal/dir1
 
 run: main.out

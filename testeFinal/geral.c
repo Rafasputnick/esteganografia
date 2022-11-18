@@ -1,11 +1,12 @@
-// Desenvolvido por Rafael Nascimento Lourenco
+// Desenvolvido por Rafael Nascimento Lourencobmp_header
 // Referencias
 // https://docs.fileformat.com/image/bmp/
 // https://stackoverflow.com/questions/14279242/read-bitmap-file-into-structure
 // https://en.wikipedia.org/wiki/BMP_file_format
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 #define FUSE_USE_VERSION 30
-#define MATRIX_CONTENT_VALUE 256 * 256
+#define MATRIX_CONTENT_VALUE 128 * 128
+#define LSB_HEADER_SIZE 6
 
 #include <errno.h>
 #include <fuse.h>
@@ -36,10 +37,8 @@ int16_t curr_dir_idx;
 char **files_list;
 int16_t curr_file_idx;
 
-char **files_content;
+char **files_content_list;
 int16_t curr_file_content_idx;
-
-
 
 enum lsbHeaderIndex {
 
@@ -70,6 +69,15 @@ typedef struct DibHeader {
 
 bmp_header *bmpHeader;
 dib_header *dibHeader;
+
+uint64_t getIndexValue(int matrixIndex, uint16_t curr_idx) {
+  uint64_t pointerIndex =
+      (bmpHeader->bitmapAddress +
+       ((LSB_HEADER_SIZE + (MATRIX_CONTENT_VALUE * matrixIndex) +
+         (128 * curr_idx)) *
+        8));
+  return pointerIndex;
+}
 
 void exitWithError(FILE *filePointer, char *msg) {
   printf("%s\n", msg);
@@ -106,26 +114,26 @@ void getDibHeader(FILE *filePointer, dib_header *header) {
 }
 
 void initialize() {
-  dir_list = malloc(sizeof(*dir_list) * 256);
-  files_list = malloc(sizeof(*files_list) * 256);
-  files_content = malloc(sizeof(*files_content) * 256);
+  dir_list = malloc(sizeof(*dir_list) * 128);
+  files_list = malloc(sizeof(*files_list) * 128);
+  files_content_list = malloc(sizeof(*files_content_list) * 128);
 
-  for (int i = 0; i < 256; i++) {
-    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 256);
-    files_list[i] = malloc(sizeof(*(files_list[i])) * 256);
-    files_content[i] = malloc(sizeof(*(files_content[i])) * 256);
+  for (int i = 0; i < 128; i++) {
+    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 128);
+    files_list[i] = malloc(sizeof(*(files_list[i])) * 128);
+    files_content_list[i] = malloc(sizeof(*(files_content_list[i])) * 128);
   }
 }
 
 void freeMatrixs() {
-  for (int i = 255; i >= 0; i--) {
+  for (int i = 127; i >= 0; i--) {
     free(dir_list[i]);
     free(files_list[i]);
-    free(files_content[i]);
+    free(files_content_list[i]);
   }
   free(dir_list);
   free(files_list);
-  free(files_content);
+  free(files_content_list);
 }
 
 void putByteWithLsbMethod(int8_t byteForLsb, FILE *filePointer) {
@@ -142,7 +150,7 @@ void putByteWithLsbMethod(int8_t byteForLsb, FILE *filePointer) {
         cur_byte--;
       }
     }
-    fputc(cur_byte, filePointer);
+    fputc((char)cur_byte, filePointer);
   }
 }
 
@@ -189,39 +197,53 @@ void readLsbMethodHeader(FILE *filePointer) {
   setLshHeaderValue(&curr_file_content_idx);
 }
 
-void setLshContentValue(int16_t *value) {
-  getByteWithLsbMethod(filePointer);
+void setLshContentValue(char **value, int16_t maxIndex) {
+  //////////////////////////////////////////////////////////////////////////////
+  char byte = '\n';
+  for (int i = 0; i <= maxIndex; i++) {
+    for (int j = 0; j < 128; j++) {
+      byte = getByteWithLsbMethod(filePointer);
+      value[i][j] = byte;
+    }
+  }
 }
 
-void  readContentInFIle() {
-  setLshContentValue(&curr_dir_idx);
-  setLshContentValue(&curr_dir_idx);
-  setLshContentValue(&curr_dir_idx);
+void readContentInFIle() {
+  fseek(filePointer, getIndexValue(DIRR_IDX, 0), SEEK_SET);
+  setLshContentValue(dir_list, curr_dir_idx);
+
+  fseek(filePointer, getIndexValue(FILE_IDX, 0), SEEK_SET);
+  setLshContentValue(files_list, curr_file_idx);
+
+  fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, 0), SEEK_SET);
+  setLshContentValue(files_content_list, curr_file_content_idx);
 }
 
 void updateLsbHeader(uint8_t index) {
   switch (index) {
   case DIRR_IDX:
-    fseek(filePointer, bmpHeader->bitmapAddress + (DIRR_IDX * sizeof(int16_t)),
+    fseek(filePointer,
+          (bmpHeader->bitmapAddress + (DIRR_IDX * sizeof(int16_t) * 8)),
           SEEK_SET);
     updateLsbHeaderValue(curr_dir_idx);
     break;
   case FILE_IDX:
-    fseek(filePointer, bmpHeader->bitmapAddress + (FILE_IDX * sizeof(int16_t)),
+    fseek(filePointer,
+          (bmpHeader->bitmapAddress + (FILE_IDX * sizeof(int16_t) * 8)),
           SEEK_SET);
     updateLsbHeaderValue(curr_file_idx);
     break;
   case FILE_CONTENT_IDX:
     fseek(filePointer,
-          bmpHeader->bitmapAddress + (FILE_CONTENT_IDX * sizeof(int16_t)),
+          (bmpHeader->bitmapAddress + (FILE_CONTENT_IDX * sizeof(int16_t) * 8)),
           SEEK_SET);
     updateLsbHeaderValue(curr_file_content_idx);
     break;
   }
 }
 
-void updateLsbContent(char *content){
-  for (int i = 0; content[i] != '\0'; i++){
+void updateLsbContent(char *content) {
+  for (int i = 0; i < 50; i++) {
     putByteWithLsbMethod(content[i], filePointer);
   }
 }
@@ -230,17 +252,12 @@ void updateLsbContent(char *content){
 
 // Trabalhando com o diretorio (libfuse)
 
-uint32_t getIndexValue(uint16_t matrixIndex, uint16_t curr_idx){
-  uint32_t  pointerIndex = bmpHeader->bitmapAddress + (MATRIX_CONTENT_VALUE * matrixIndex) + (256 * curr_idx);
-  return pointerIndex;
-}
-
 void add_dir(const char *dir_name) {
   curr_dir_idx++;
   updateLsbHeader(DIRR_IDX);
 
   strcpy(dir_list[curr_dir_idx], dir_name);
-  fseek(filePointer, getIndexValue(DIRR_IDX, curr_dir_idx) , SEEK_SET);
+  fseek(filePointer, getIndexValue(DIRR_IDX, curr_dir_idx), SEEK_SET);
   updateLsbContent(dir_list[curr_dir_idx]);
 }
 
@@ -256,10 +273,19 @@ int is_dir(const char *path) {
 
 void add_file(const char *filename) {
   curr_file_idx++;
+  updateLsbHeader(FILE_IDX);
+
   strcpy(files_list[curr_file_idx], filename);
+  fseek(filePointer, getIndexValue(FILE_IDX, curr_file_idx), SEEK_SET);
+  updateLsbContent(files_list[curr_file_idx]);
 
   curr_file_content_idx++;
-  strcpy(files_content[curr_file_content_idx], "");
+  updateLsbHeader(FILE_CONTENT_IDX);
+
+  strcpy(files_content_list[curr_file_content_idx], "");
+  fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, curr_file_content_idx),
+        SEEK_SET);
+  updateLsbContent(files_content_list[curr_file_content_idx]);
 }
 
 int is_file(const char *path) {
@@ -288,27 +314,29 @@ void write_to_file(const char *path, const char *new_content) {
   if (file_idx == -1) // No such file
     return;
 
-  strcpy(files_content[file_idx], new_content);
+  strcpy(files_content_list[file_idx], new_content);
+  fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, file_idx), SEEK_SET);
+  updateLsbContent(files_content_list[file_idx]);
 }
 
-static int do_getattr(const char *path, struct stat *st) {
-  st->st_uid = getuid(); // The owner of the file/directory is the user who
-                         // mounted the filesystem
-  st->st_gid = getgid(); // The group of the file/directory is the same as the
-                         // group of the user who mounted the filesystem
-  st->st_atime =
+static int do_getattr(const char *path, struct stat *s) {
+  s->st_uid = getuid(); // The owner of the file/directory is the user who
+                        // mounted the filesystem
+  s->st_gid = getgid(); // The group of the file/directory is the same as the
+                        // group of the user who mounted the filesystem
+  s->st_atime =
       time(NULL); // The last "a"ccess of the file/directory is right now
-  st->st_mtime =
+  s->st_mtime =
       time(NULL); // The last "m"odification of the file/directory is right now
 
   if (strcmp(path, "/") == 0 || is_dir(path) == 1) {
-    st->st_mode = S_IFDIR | 0755;
-    st->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is
-                      // here: http://unix.stackexchange.com/a/101536
+    s->st_mode = S_IFDIR | 0755;
+    s->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is
+                     // here: http://unix.stackexchange.com/a/101536
   } else if (is_file(path) == 1) {
-    st->st_mode = S_IFREG | 0644;
-    st->st_nlink = 1;
-    st->st_size = 1024;
+    s->st_mode = S_IFREG | 0644;
+    s->st_nlink = 1;
+    s->st_size = 1024;
   } else {
     return -ENOENT;
   }
@@ -342,7 +370,7 @@ static int do_read(const char *path, char *buffer, size_t size, off_t offset,
   if (file_idx == -1)
     return -1;
 
-  char *content = files_content[file_idx];
+  char *content = files_content_list[file_idx];
 
   memcpy(buffer, content + offset, size);
 

@@ -64,8 +64,8 @@ void setIndexHeaderPointer(int16_t *value, FILE *filePointer) {
   *value = aux.valor;
 }
 
-void readMatrixContentInFIle(FILE *filePointer, char **matrix, int lastMatrixIndex, int16_t arrayIndex, uint32_t bitmapAddress) {
-  fseek(filePointer, getIndexOfBmpWithLsb(lastMatrixIndex, 0, bitmapAddress), SEEK_SET);
+void readMatrixContentInFIle(FILE *filePointer, char **matrix, int matrixIndex, int16_t lastMatrixIndex, uint32_t bitmapAddress) {
+  fseek(filePointer, getIndexOfBmpWithLsb(matrixIndex, 0, bitmapAddress), SEEK_SET);
   char byte;
   for (int i = 0; i <= lastMatrixIndex; i++) {
     for (int j = 0; j < 8; j++) {
@@ -81,7 +81,7 @@ void setIndexHeaderInFile(FILE *filePointer, int matrixIndex, int16_t indexValue
 }
 
 void setMatrixContentInFile(char *content, FILE *filePointer) {
-  for (int i = 0; i < (MATRIX_LENGHT -1); i++) {
+  for (int i = 0; i < (MATRIX_LENGHT - 1); i++) {
     putByteInFileWithLsb(content[i], filePointer);
   }
 }

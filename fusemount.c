@@ -176,8 +176,7 @@ static int do_read(const char *path, char *buffer, size_t size, off_t offset, st
 }
 
 static int do_mkdir(const char *path, mode_t mode) {
-  path++;
-  add_dir(path);
+  add_dir((path + 1));
 
   return 0;
 }

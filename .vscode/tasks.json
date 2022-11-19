@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [{
         "label": "compile",
-        "command": "make",
+        "command": "make fusermount.out",
         "type": "shell",
         "presentation": {
             "echo": false,
@@ -15,7 +15,7 @@
     },
     {
         "label": "format",
-        "command": "clang-format -i *.c *.h",
+        "command": "clang-format -i -style=file *.c *.h",
         "type": "shell",
         "presentation": {
             "echo": false,

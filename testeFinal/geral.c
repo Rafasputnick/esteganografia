@@ -5,8 +5,6 @@
 // https://en.wikipedia.org/wiki/BMP_file_format
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 #define FUSE_USE_VERSION 30
-#define MATRIX_CONTENT_VALUE 10 * 10
-#define LSB_HEADER_SIZE 6
 
 #include <errno.h>
 #include <fuse.h>
@@ -21,231 +19,24 @@
 
 // Manipulando o bmp
 
-int getBit(uint8_t byte, uint8_t bit) {
-  uint8_t bitsAtRigth = bit - 1;
-  uint8_t shefittedByte = byte >> bitsAtRigth;
-  return shefittedByte & 1;
-}
 
-typedef union {
-  unsigned char bytes[2];
-  int16_t valor;
-} byteIntoTwoBytes;
 
-char **dir_list;
-int16_t curr_dir_idx;
 
-char **files_list;
-int16_t curr_file_idx;
 
-char **files_content_list;
-int16_t curr_file_content_idx;
 
-enum lsbHeaderIndex {
 
-  DIRR_IDX,
 
-  FILE_IDX,
 
-  FILE_CONTENT_IDX
-};
 
-FILE *filePointer;
 
-typedef struct BmpHeader {
-  char *fileType;
-  uint32_t fSize;
-  uint16_t *reserveds;
-  uint32_t bitmapAddress;
-} bmp_header;
 
-typedef struct DibHeader {
-  uint32_t headerSize;
-  uint16_t bmWidth;
-  uint16_t bmHeight;
-  uint16_t colorPlanes;
-  uint16_t bitPerPixel;
-} dib_header;
 
-bmp_header *bmpHeader;
-dib_header *dibHeader;
 
-uint64_t getIndexValue(int matrixIndex, uint16_t curr_idx) {
-  uint64_t pointerIndex =
-      (bmpHeader->bitmapAddress +
-       ((LSB_HEADER_SIZE + (MATRIX_CONTENT_VALUE * matrixIndex) +
-         (10 * curr_idx)) *
-        8));
-  return pointerIndex;
-}
 
-void exitWithError(FILE *filePointer, char *msg) {
-  printf("%s\n", msg);
-  fclose(filePointer);
-  exit(1);
-}
 
-void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes) {
-  fread(value, 1, howMuchBytes, filePointer);
-}
 
-void getBmpHeader(FILE *filePointer, bmp_header *header) {
-  getBytesFromFile(filePointer, header->fileType, 2);
 
-  getBytesFromFile(filePointer, ((char *)&header->fSize), 4);
 
-  getBytesFromFile(filePointer, ((char *)header->reserveds), 2);
-  getBytesFromFile(filePointer, ((char *)header->reserveds + 1), 2);
-
-  getBytesFromFile(filePointer, ((char *)&header->bitmapAddress), 4);
-}
-
-void getDibHeader(FILE *filePointer, dib_header *header) {
-
-  getBytesFromFile(filePointer, ((char *)&header->headerSize), 4);
-
-  getBytesFromFile(filePointer, ((char *)&header->bmWidth), 4);
-
-  getBytesFromFile(filePointer, ((char *)&header->bmHeight), 4);
-
-  getBytesFromFile(filePointer, ((char *)&header->colorPlanes), 2);
-
-  getBytesFromFile(filePointer, ((char *)&header->bitPerPixel), 2);
-}
-
-void initialize() {
-  dir_list = malloc(sizeof(*dir_list) * 10);
-  files_list = malloc(sizeof(*files_list) * 10);
-  files_content_list = malloc(sizeof(*files_content_list) * 10);
-
-  for (int i = 0; i < 10; i++) {
-    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 10);
-    files_list[i] = malloc(sizeof(*(files_list[i])) * 10);
-    files_content_list[i] = malloc(sizeof(*(files_content_list[i])) * 10);
-  }
-}
-
-void freeMatrixs() {
-  for (int i = 9; i >= 0; i--) {
-    free(dir_list[i]);
-    free(files_list[i]);
-    free(files_content_list[i]);
-  }
-  free(dir_list);
-  free(files_list);
-  free(files_content_list);
-}
-
-void putByteWithLsbMethod(int8_t byteForLsb, FILE *filePointer) {
-  int8_t cur_byte;
-  for (int i = 1; i < 9; i++) {
-    fread(&cur_byte, 1, 1, filePointer);
-    fseek(filePointer, -1, SEEK_CUR);
-    if (getBit(byteForLsb, i)) {
-      if (cur_byte % 2 == 0) {
-        cur_byte++;
-      }
-    } else {
-      if (cur_byte % 2 == 1) {
-        cur_byte--;
-      }
-    }
-    fputc(cur_byte, filePointer);
-  }
-}
-
-int8_t getByteWithLsbMethod(FILE *filePointer) {
-  int8_t res = 0;
-  int8_t byteFromFile;
-
-  for (int i = 0; i < 8; i++) {
-    fread(&byteFromFile, 1, 1, filePointer);
-    if (byteFromFile % 2 == 1) {
-      res |= 1 << i;
-    }
-  }
-
-  return res;
-}
-
-void updateLsbHeaderValue(int16_t valor) {
-  byteIntoTwoBytes aux;
-  aux.valor = valor;
-
-  for (int j = 0; j < 2; j++) {
-    putByteWithLsbMethod(aux.bytes[j], filePointer);
-  }
-}
-
-void createLsbMethodHeader(FILE *filePointer) {
-  updateLsbHeaderValue(-1);
-  updateLsbHeaderValue(-1);
-  updateLsbHeaderValue(-1);
-}
-
-void setLshHeaderValue(int16_t *value) {
-  byteIntoTwoBytes aux;
-
-  aux.bytes[0] = getByteWithLsbMethod(filePointer);
-  aux.bytes[1] = getByteWithLsbMethod(filePointer);
-  *value = aux.valor;
-}
-
-void readLsbMethodHeader(FILE *filePointer) {
-  setLshHeaderValue(&curr_dir_idx);
-  setLshHeaderValue(&curr_file_idx);
-  setLshHeaderValue(&curr_file_content_idx);
-}
-
-void setLshContentValue(char **value, int16_t maxIndex) {
-  char byte;
-  for (int i = 0; i <= maxIndex; i++) {
-    for (int j = 0; j < 8; j++) {
-      byte = getByteWithLsbMethod(filePointer);
-      value[i][j] = byte;
-    }
-  }
-}
-
-void readContentInFIle() {
-  fseek(filePointer, getIndexValue(DIRR_IDX, 0), SEEK_SET);
-  setLshContentValue(dir_list, curr_dir_idx);
-
-  fseek(filePointer, getIndexValue(FILE_IDX, 0), SEEK_SET);
-  setLshContentValue(files_list, curr_file_idx);
-
-  fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, 0), SEEK_SET);
-  setLshContentValue(files_content_list, curr_file_content_idx);
-}
-
-void updateLsbHeader(uint8_t index) {
-  switch (index) {
-  case DIRR_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (DIRR_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_dir_idx);
-    break;
-  case FILE_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (FILE_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_file_idx);
-    break;
-  case FILE_CONTENT_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (FILE_CONTENT_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_file_content_idx);
-    break;
-  }
-}
-
-void updateLsbContent(char *content) {
-  for (int i = 0; i < 8; i++) {
-    putByteWithLsbMethod(content[i], filePointer);
-  }
-}
 
 /////////////////////////////////////////////////////////////////////
 

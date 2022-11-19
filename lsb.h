@@ -2,8 +2,8 @@
 #ifndef LSB_H
 #define LSB_H
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define MATRIX_LENGHT 10
 #define MATRIX_SIZE MATRIX_LENGHT *MATRIX_LENGHT
@@ -15,6 +15,7 @@ typedef union {
   int16_t valor;
 } byteIntoTwoBytes;
 
-uint32_t getIndexValue(int matrixIndex, uint16_t curIndex, uint32_t bitmapAddress);
+uint32_t getIndexValue(int matrixIndex, uint16_t curIndex,
+                       uint32_t bitmapAddress);
 
 #endif

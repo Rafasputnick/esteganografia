@@ -24,10 +24,12 @@ typedef struct BmpInfo {
   FILE *filePointer;
   bmp_header *bmpHeader;
   dib_header *dibHeader;
+  uint32_t bytesInBitMap;
 } bmp_info;
 
 void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes);
-
 void getBmpHeader(FILE *filePointer, bmp_header *header);
+void getDibHeader(FILE *filePointer, dib_header *header);
+bmp_info *initializeBmpInfo(int argc, char **argv);
 
 #endif

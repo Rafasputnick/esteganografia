@@ -1,5 +1,6 @@
 #include "fusemount.h"
 
+// Global variables
 char **dir_list;
 int16_t curr_dir_idx;
 
@@ -9,7 +10,7 @@ int16_t curr_file_idx;
 char **files_content_list;
 int16_t curr_file_content_idx;
 
-bmp_info bmpInfo;
+bmp_info *bmpInfo;
 
 enum lsbHeaderIndex {
 
@@ -20,7 +21,9 @@ enum lsbHeaderIndex {
   FILE_CONTENT_IDX
 };
 
-void initialize() {
+// Matrixes handlers
+
+void initializeMatrixes() {
   dir_list = malloc(sizeof(*dir_list) * 10);
   files_list = malloc(sizeof(*files_list) * 10);
   files_content_list = malloc(sizeof(*files_content_list) * 10);
@@ -32,7 +35,7 @@ void initialize() {
   }
 }
 
-void freeMatrixs() {
+void freeMatrixes() {
   for (int i = 9; i >= 0; i--) {
     free(dir_list[i]);
     free(files_list[i]);
@@ -43,13 +46,15 @@ void freeMatrixs() {
   free(files_content_list);
 }
 
+// Aux for save dir names, files names and file contents
 
 void add_dir(const char *dir_name) {
   curr_dir_idx++;
   updateLsbHeader(DIRR_IDX);
 
   strcpy(dir_list[curr_dir_idx], dir_name);
-  fseek(bmpInfo.filePointer, getIndexValue(DIRR_IDX, curr_dir_idx, bmpInfo.bmpHeader), SEEK_SET);
+  fseek(bmpInfo.filePointer,
+        getIndexValue(DIRR_IDX, curr_dir_idx, bmpInfo.bmpHeader), SEEK_SET);
   updateLsbContent(dir_list[curr_dir_idx]);
 }
 
@@ -68,15 +73,18 @@ void add_file(const char *filename) {
   updateLsbHeader(FILE_IDX);
 
   strcpy(files_list[curr_file_idx], filename);
-  fseek(bmpInfo.filePointer, getIndexValue(FILE_IDX, curr_file_idx, bmpInfo.bmpHeader), SEEK_SET);
+  fseek(bmpInfo.filePointer,
+        getIndexValue(FILE_IDX, curr_file_idx, bmpInfo.bmpHeader), SEEK_SET);
   updateLsbContent(files_list[curr_file_idx]);
 
   curr_file_content_idx++;
   updateLsbHeader(FILE_CONTENT_IDX);
 
   strcpy(files_content_list[curr_file_content_idx], "\0");
-  fseek(bmpInfo.filePointer, getIndexValue(FILE_CONTENT_IDX, curr_file_content_idx, bmpInfo.bmpHeader),
-        SEEK_SET);
+  fseek(
+      bmpInfo.filePointer,
+      getIndexValue(FILE_CONTENT_IDX, curr_file_content_idx, bmpInfo.bmpHeader),
+      SEEK_SET);
   updateLsbContent(files_content_list[curr_file_content_idx]);
 }
 
@@ -107,9 +115,12 @@ void write_to_file(const char *path, const char *new_content) {
     return;
 
   strcpy(files_content_list[file_idx], new_content);
-  fseek(bmpInfo.filePointer, getIndexValue(FILE_CONTENT_IDX, file_idx, bmpInfo.bmpHeader), SEEK_SET);
+  fseek(bmpInfo.filePointer,
+        getIndexValue(FILE_CONTENT_IDX, file_idx, bmpInfo.bmpHeader), SEEK_SET);
   updateLsbContent(files_content_list[file_idx]);
 }
+
+// Fuser methods to be used
 
 static int do_getattr(const char *path, struct stat *s) {
   s->st_uid = getuid(); // The owner of the file/directory is the user who
@@ -192,13 +203,13 @@ static int do_write(const char *path, const char *buffer, size_t size,
 
 static void do_destroy() {
   printf("\nDestroying mallocs\n");
-  freeMatrixs();
-  free(bmpHeader->fileType);
-  free(bmpHeader->reserveds);
-  free(bmpHeader);
-  free(dibHeader);
-
-  fclose(filePointer);
+  freeMatrixes();
+  free(bmpInfo->bmpHeader->fileType);
+  free(bmpInfo->bmpHeader->reserveds);
+  free(bmpInfo->bmpHeader);
+  free(bmpInfo->dibHeader);
+  fclose(bmpInfo->filePointer);
+  free(bmpInfo);
 }
 
 static struct fuse_operations operations = {.getattr = do_getattr,
@@ -213,45 +224,19 @@ static struct fuse_operations operations = {.getattr = do_getattr,
                                             .destroy = do_destroy};
 
 int main(int argc, char **argv) {
-  initialize();
+  initializeMatrixes();
+  bmpInfo = initializeBmpInfo(argc, argv);
 
-  bmpHeader = malloc(sizeof(bmp_header));
-  bmpHeader->fileType = malloc(sizeof(char) * 3);
-  bmpHeader->reserveds = malloc(sizeof(uint16_t) * 2);
-
-  dibHeader = malloc(sizeof(dib_header));
-
-  if (argc < 4) {
-    printf("Error: BMP path not found in arguments");
-    exit(1);
-  }
-
-  char *filePath = (char *)argv[5];
-  printf("\nReading: %s\n", filePath);
-  filePointer = fopen(filePath, "r+");
-
-  if (filePointer == NULL) {
-    exitWithError(filePointer, "Error: Opening file");
-  }
-
-  getBmpHeader(filePointer, bmpHeader);
-  getDibHeader(filePointer, dibHeader);
-
-  fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
-
-  uint32_t bytesInBitMap =
-      dibHeader->bmWidth * dibHeader->bmHeight * (dibHeader->bitPerPixel / 8);
-
-  // open and start
+  // save a default value at image
   if (argc == 7) {
     char *option = (char *)argv[6];
     if ((strcmp(option, "-s") == 0)) {
-      createLsbMethodHeader(filePointer);
-      fseek(filePointer, bmpHeader->bitmapAddress, SEEK_SET);
+      createLsbMethodHeader(bmpInfo->filePointer);
+      fseek(bmpInfo->filePointer, bmpInfo->bmpHeader->bitmapAddress, SEEK_SET);
     }
   }
 
-  readLsbMethodHeader(filePointer);
+  readLsbMethodHeader(bmpInfo->filePointer);
   readContentInFIle();
 
   argc = 5;

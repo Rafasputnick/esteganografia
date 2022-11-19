@@ -15,7 +15,7 @@
     },
     {
         "label": "format",
-        "command": "clang-format -i **/*.c",
+        "command": "clang-format -i *.c *.h",
         "type": "shell",
         "presentation": {
             "echo": false,

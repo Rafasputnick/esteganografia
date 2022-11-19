@@ -1,8 +1,6 @@
 #include "bmp.h"
 
-void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes) {
-  fread(value, 1, howMuchBytes, filePointer);
-}
+void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes) { fread(value, 1, howMuchBytes, filePointer); }
 
 void getBmpHeader(FILE *filePointer, bmp_header *header) {
   getBytesFromFile(filePointer, header->fileType, 2);
@@ -52,9 +50,7 @@ bmp_info *initializeBmpInfo(int argc, char **argv) {
 
   fseek(bmpInfo->filePointer, bmpInfo->bmpHeader->bitmapAddress, SEEK_SET);
 
-  bmpInfo->bytesInBitMap = bmpInfo->dibHeader->bmWidth *
-                           bmpInfo->dibHeader->bmHeight *
-                           (bmpInfo->dibHeader->bitPerPixel / 8);
+  bmpInfo->bytesInBitMap = bmpInfo->dibHeader->bmWidth * bmpInfo->dibHeader->bmHeight * (bmpInfo->dibHeader->bitPerPixel / 8);
 
   return bmpInfo;
 }

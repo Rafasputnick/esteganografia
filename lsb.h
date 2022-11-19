@@ -15,7 +15,6 @@ typedef union {
   int16_t valor;
 } byteIntoTwoBytes;
 
-uint32_t getIndexValue(int matrixIndex, uint16_t curIndex,
-                       uint32_t bitmapAddress);
+uint32_t getIndexValue(int matrixIndex, uint16_t curIndex, uint32_t bitmapAddress);
 
 #endif

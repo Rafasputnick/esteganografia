@@ -1,17 +1,18 @@
-.PHONY: run debugGeral clean clean_f
+.PHONY: run format clean clean_f
 
-debugGeral:
-	gcc -W -Wall -pedantic -g testeFinal/geral.c -o testeFinal/geral `pkg-config fuse --cflags --libs`
+run: fusermount.out fusermount.c fusermount.h bmp.c bmp.h lsb.c lsb.h
+	sudo mkdir /mnt/device1
+	./fusermount.out -f /mnt/device1 original-zebras.bmp -s
+	sudo rm -d /mnt/device1
+
+fusermount.out:
+	gcc -W -Wall -pedantic -g fusermount.c fusermount.h bmp.c bmp.h lsb.c lsb.h -o fusermount.out `pkg-config fuse --cflags --libs`
 	
+formmat:
+	clang-format -i -style=file *.c *.h
 
 clean:
-	fusermount -u ./dir1
+	fusermount -u /mnt/device1
 
 clean_f:
-	sudo umount -l testeFinal/dir1
-
-run: main.out
-	./main.out original-zebras.bmp -s
-
-main.out: main.c
-	gcc -W -Wall -pedantic -std=c11 main.c -o main.out -g
+	sudo umount -l /mnt/device1

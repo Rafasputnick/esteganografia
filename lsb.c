@@ -1,4 +1,5 @@
 #include "lsb.h"
+#include <stdint.h>
 
 uint32_t getIndexValue(int matrixIndex, uint16_t curIndex, uint32_t bitmapAddress) {
   uint32_t list = MATRIX_SIZE * matrixIndex;
@@ -67,12 +68,6 @@ void setLshHeaderValue(int16_t *value, FILE *filePointer) {
   *value = aux.valor;
 }
 
-void readLsbMethodHeader(FILE *filePointer) {
-  setLshHeaderValue(&curr_dir_idx);
-  setLshHeaderValue(&curr_file_idx);
-  setLshHeaderValue(&curr_file_content_idx);
-}
-
 void setLshContentValue(char **value, int16_t maxIndex, FILE *filePointer) {
   char byte;
   for (int i = 0; i <= maxIndex; i++) {
@@ -83,41 +78,20 @@ void setLshContentValue(char **value, int16_t maxIndex, FILE *filePointer) {
   }
 }
 
-void readContentInFIle(FILE *filePointer) {
-  fseek(filePointer, getIndexValue(DIRR_IDX, 0), SEEK_SET);
-  setLshContentValue(dir_list, curr_dir_idx);
-
-  fseek(filePointer, getIndexValue(FILE_IDX, 0), SEEK_SET);
-  setLshContentValue(files_list, curr_file_idx);
-
-  fseek(filePointer, getIndexValue(FILE_CONTENT_IDX, 0), SEEK_SET);
-  setLshContentValue(files_content_list, curr_file_content_idx);
+void readContentInFIle(FILE *filePointer, char **matrix, int matrixIndex, int16_t arrayIndex, uint32_t bitmapAddress) {
+  fseek(filePointer, getIndexValue(matrixIndex, 0, bitmapAddress), SEEK_SET);
+  setLshContentValue(matrix, arrayIndex, filePointer);
 }
 
-void updateLsbHeader(uint8_t index) {
-  switch (index) {
-  case DIRR_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (DIRR_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_dir_idx);
-    break;
-  case FILE_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (FILE_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_file_idx);
-    break;
-  case FILE_CONTENT_IDX:
-    fseek(filePointer,
-          (bmpHeader->bitmapAddress + (FILE_CONTENT_IDX * sizeof(int16_t) * 8)),
-          SEEK_SET);
-    updateLsbHeaderValue(curr_file_content_idx);
-    break;
-  }
+void updateLsbHeader(uint8_t index, FILE *filePointer, int matrixIndex, int16_t arrayIndex, uint32_t bitmapAddress ) {
+  fseek(filePointer,
+        (bitmapAddress + (matrixIndex * sizeof(int16_t) * BYTE)),
+        SEEK_SET);
+  updateLsbHeaderValue(arrayIndex, filePointer);
+
 }
 
-void updateLsbContent(char *content) {
+void updateLsbContent(char *content, FILE *filePointer) {
   for (int i = 0; i < 8; i++) {
     putByteWithLsbMethod(content[i], filePointer);
   }

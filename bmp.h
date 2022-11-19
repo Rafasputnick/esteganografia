@@ -26,9 +26,6 @@ typedef struct BmpInfo {
   dib_header *dibHeader;
 } bmp_info;
 
-uint64_t getIndexValue(int matrixIndex, uint16_t curr_idx,
-                       bmp_header *bmpHeader);
-
 void getBytesFromFile(FILE *filePointer, char *value, uint32_t howMuchBytes);
 
 void getBmpHeader(FILE *filePointer, bmp_header *header);

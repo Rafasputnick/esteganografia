@@ -115,7 +115,7 @@ void write_to_file(const char *path, const char *new_content) {
     return;
 
   strcpy(filesContentMatrix[file_idx], new_content);
-  uint32_t offset = getIndexOfBmpWithLsb(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
+  uint32_t offset = getIndexOfBmpWithLsb(FILE_CONTENT_IDX, fileContentIndex, bmpInfo->bmpHeader->bitmapAddress);
   fseek(bmpInfo->filePointer, offset, SEEK_SET);
   setMatrixContentInFile(filesContentMatrix[file_idx], bmpInfo->filePointer);
 }

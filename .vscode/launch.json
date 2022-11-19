@@ -9,7 +9,7 @@
             "type": "gdb",
             "request": "launch",
             "target": "fusermount.out",
-            "arguments": "-f ./dir1 -d -s original-zebras.bmp",
+            "arguments": "-f ./dir1 -d -s original-zebras.bmp init",
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "build",
             "valuesFormatting": "parseText"

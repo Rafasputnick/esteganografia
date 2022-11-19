@@ -1,94 +1,96 @@
+// Desenvolvido por Rafael Nascimento Lourencobmp_header
+// Referencias
+// https://docs.fileformat.com/image/bmp/
+// https://stackoverflow.com/questions/14279242/read-bitmap-file-into-structure
+// https://en.wikipedia.org/wiki/BMP_file_format
+// https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
+
 #include "fusemount.h"
 
 // Global variables
-char **dir_list;
-int16_t curr_dir_idx;
+// Matrixes
+char **dirArray;
+char **filesArray;
+char **filesContentArray;
 
-char **files_list;
-int16_t curr_file_idx;
-
-char **files_content_list;
-int16_t curr_file_content_idx;
+// Indexes header
+int16_t dirIndex;
+int16_t fileIndex;
+int16_t fileContentIndex;
 
 bmp_info *bmpInfo;
 
-enum lsbHeaderIndex {
-
-  DIRR_IDX,
-
-  FILE_IDX,
-
-  FILE_CONTENT_IDX
-};
+enum lsbHeaderIndex { DIRR_IDX, FILE_IDX, FILE_CONTENT_IDX };
 
 // Matrixes handlers
 
 void initializeMatrixes() {
-  dir_list = malloc(sizeof(*dir_list) * 10);
-  files_list = malloc(sizeof(*files_list) * 10);
-  files_content_list = malloc(sizeof(*files_content_list) * 10);
+  dirArray = malloc(sizeof(*dirArray) * MATRIX_LENGHT);
+  filesArray = malloc(sizeof(*filesArray) * MATRIX_LENGHT);
+  filesContentArray = malloc(sizeof(*filesContentArray) * MATRIX_LENGHT);
 
-  for (int i = 0; i < 10; i++) {
-    dir_list[i] = malloc(sizeof(*(dir_list[i])) * 10);
-    files_list[i] = malloc(sizeof(*(files_list[i])) * 10);
-    files_content_list[i] = malloc(sizeof(*(files_content_list[i])) * 10);
+  for (int i = 0; i < MATRIX_LENGHT; i++) {
+    dirArray[i] = malloc(sizeof(*(dirArray[i])) * MATRIX_LENGHT);
+    filesArray[i] = malloc(sizeof(*(filesArray[i])) * MATRIX_LENGHT);
+    filesContentArray[i] = malloc(sizeof(*(filesContentArray[i])) * MATRIX_LENGHT);
   }
 }
 
 void freeMatrixes() {
-  for (int i = 9; i >= 0; i--) {
-    free(dir_list[i]);
-    free(files_list[i]);
-    free(files_content_list[i]);
+  for (int i = (MATRIX_LENGHT - 1); i >= 0; i--) {
+    free(dirArray[i]);
+    free(filesArray[i]);
+    free(filesContentArray[i]);
   }
-  free(dir_list);
-  free(files_list);
-  free(files_content_list);
+  free(dirArray);
+  free(filesArray);
+  free(filesContentArray);
 }
 
 // Aux for save dir names, files names and file contents
 
 void add_dir(const char *dir_name) {
-  curr_dir_idx++;
+  dirIndex++;
   updateLsbHeader(DIRR_IDX);
 
-  strcpy(dir_list[curr_dir_idx], dir_name);
-  uint32_t offset = getIndexValue(DIRR_IDX, curr_dir_idx, bmpInfo->bmpHeader->bitmapAddress);
+  strcpy(dirArray[dirIndex], dir_name);
+  uint32_t offset = getIndexValue(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
   fseek(bmpInfo->filePointer, offset, SEEK_SET);
-  updateLsbContent(dir_list[curr_dir_idx], bmpInfo->filePointer);
+  updateLsbContent(dirArray[dirIndex], bmpInfo->filePointer);
 }
 
 int is_dir(const char *path) {
   path++; // Eliminating "/" in the path
 
-  for (int curr_idx = 0; curr_idx <= curr_dir_idx; curr_idx++)
-    if (strcmp(path, dir_list[curr_idx]) == 0)
+  for (int curr_idx = 0; curr_idx <= dirIndex; curr_idx++)
+    if (strcmp(path, dirArray[curr_idx]) == 0)
       return 1;
 
   return 0;
 }
 
 void add_file(const char *filename) {
-  curr_file_idx++;
+  fileIndex++;
   updateLsbHeader(FILE_IDX);
 
-  strcpy(files_list[curr_file_idx], filename);
-  fseek(bmpInfo->filePointer, getIndexValue(FILE_IDX, curr_file_idx, bmpInfo->bmpHeader), SEEK_SET);
-  updateLsbContent(files_list[curr_file_idx]);
+  strcpy(filesArray[fileIndex], filename);
+  uint32_t offset = getIndexValue(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
+  fseek(bmpInfo->filePointer, offset, SEEK_SET);
+  updateLsbContent(filesArray[fileIndex], bmpInfo->filePointer);
 
-  curr_file_content_idx++;
+  fileContentIndex++;
   updateLsbHeader(FILE_CONTENT_IDX);
 
-  strcpy(files_content_list[curr_file_content_idx], "\0");
-  fseek(bmpInfo->filePointer, getIndexValue(FILE_CONTENT_IDX, curr_file_content_idx, bmpInfo->bmpHeader), SEEK_SET);
-  updateLsbContent(files_content_list[curr_file_content_idx]);
+  strcpy(filesContentArray[fileContentIndex], "\0");
+  fseek(bmpInfo->filePointer, getIndexValue(FILE_CONTENT_IDX, fileContentIndex, bmpInfo->bmpHeader), SEEK_SET);
+  updateLsbContent(filesContentArray[fileContentIndex]);
 }
 
 int is_file(const char *path) {
   path++; // Eliminating "/" in the path
 
-  for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
-    if (strcmp(path, files_list[curr_idx]) == 0)
+  for (int curr_idx = 0; curr_idx <= fileIndex; curr_idx++)
+    if (strcmp(path, filesArray[curr_idx]) == 0)
       return 1;
 
   return 0;
@@ -97,8 +99,8 @@ int is_file(const char *path) {
 int get_file_index(const char *path) {
   path++; // Eliminating "/" in the path
 
-  for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
-    if (strcmp(path, files_list[curr_idx]) == 0)
+  for (int curr_idx = 0; curr_idx <= fileIndex; curr_idx++)
+    if (strcmp(path, filesArray[curr_idx]) == 0)
       return curr_idx;
 
   return -1;
@@ -110,9 +112,9 @@ void write_to_file(const char *path, const char *new_content) {
   if (file_idx == -1) // No such file
     return;
 
-  strcpy(files_content_list[file_idx], new_content);
+  strcpy(filesContentArray[file_idx], new_content);
   fseek(bmpInfo->filePointer, getIndexValue(FILE_CONTENT_IDX, file_idx, bmpInfo->bmpHeader), SEEK_SET);
-  updateLsbContent(files_content_list[file_idx]);
+  updateLsbContent(filesContentArray[file_idx]);
 }
 
 // Fuser methods to be used
@@ -128,7 +130,7 @@ static int do_getattr(const char *path, struct stat *s) {
   if (strcmp(path, "/") == 0 || is_dir(path) == 1) {
     s->st_mode = S_IFDIR | 0755;
     s->st_nlink = 2; // Why "two" hardlinks instead of "one"? The answer is
-                     // here: http://unix.stackexchange.com/a/101536
+                     // here: http://unix.stackexchange.com/a/MATRIX_LENGHT1536
   } else if (is_file(path) == 1) {
     s->st_mode = S_IFREG | 0644;
     s->st_nlink = 1;
@@ -147,11 +149,11 @@ static int do_readdir(const char *path, void *buffer, fuse_fill_dir_t filler, of
   if (strcmp(path, "/") == 0) // If the user is trying to show the files/directories of the root
                               // directory show the following
   {
-    for (int curr_idx = 0; curr_idx <= curr_dir_idx; curr_idx++)
-      filler(buffer, dir_list[curr_idx], NULL, 0);
+    for (int curr_idx = 0; curr_idx <= dirIndex; curr_idx++)
+      filler(buffer, dirArray[curr_idx], NULL, 0);
 
-    for (int curr_idx = 0; curr_idx <= curr_file_idx; curr_idx++)
-      filler(buffer, files_list[curr_idx], NULL, 0);
+    for (int curr_idx = 0; curr_idx <= fileIndex; curr_idx++)
+      filler(buffer, filesArray[curr_idx], NULL, 0);
   }
 
   return 0;
@@ -163,7 +165,7 @@ static int do_read(const char *path, char *buffer, size_t size, off_t offset, st
   if (file_idx == -1)
     return -1;
 
-  char *content = files_content_list[file_idx];
+  char *content = filesContentArray[file_idx];
 
   memcpy(buffer, content + offset, size);
 
@@ -219,7 +221,7 @@ int main(int argc, char **argv) {
   // save a default value at image
   if (argc == 7) {
     char *option = (char *)argv[6];
-    if ((strcmp(option, "-s") == 0)) {
+    if ((strcmp(option, "init") == 0)) {
       createLsbMethodHeader(bmpInfo->filePointer);
       fseek(bmpInfo->filePointer, bmpInfo->bmpHeader->bitmapAddress, SEEK_SET);
     }

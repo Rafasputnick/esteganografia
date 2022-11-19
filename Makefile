@@ -1,9 +1,12 @@
-.PHONY: run format clean clean_f
+.PHONY: run open format clean clean_f 
 
 run: fusermount.out fusermount.c fusermount.h bmp.c bmp.h lsb.c lsb.h
 	sudo mkdir /mnt/device1
 	./fusermount.out -f /mnt/device1 original-zebras.bmp init
 	sudo rm -d /mnt/device1
+
+open:
+	cd /mnt/device1
 
 fusermount.out:
 	gcc -W -Wall -pedantic -g fusermount.c fusermount.h bmp.c bmp.h lsb.c lsb.h -o fusermount.out `pkg-config fuse --cflags --libs`

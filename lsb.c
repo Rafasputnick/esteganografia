@@ -43,9 +43,9 @@ int8_t getByteInFileWithLsb(FILE *filePointer) {
   return res;
 }
 
-void putIndexInFileWithLsb(int16_t valor, FILE *filePointer) {
+void putIndexInFileWithLsb(int16_t indexValue, FILE *filePointer) {
   byteIntoTwoBytes aux;
-  aux.valor = valor;
+  aux.valor = indexValue;
   for (int j = 0; j < 2; j++) {
     putByteInFileWithLsb(aux.bytes[j], filePointer);
   }
@@ -57,35 +57,31 @@ void createIndexesHeaderInFile(FILE *filePointer) {
   putIndexInFileWithLsb(-1, filePointer);
 }
 
-void setIndexHeaderValue(int16_t *value, FILE *filePointer) {
+void setIndexHeaderPointer(int16_t *value, FILE *filePointer) {
   byteIntoTwoBytes aux;
   aux.bytes[0] = getByteInFileWithLsb(filePointer);
   aux.bytes[1] = getByteInFileWithLsb(filePointer);
   *value = aux.valor;
 }
 
-void setLshContentValue(char **value, int16_t maxIndex, FILE *filePointer) {
+void readMatrixContentInFIle(FILE *filePointer, char **matrix, int lastMatrixIndex, int16_t arrayIndex, uint32_t bitmapAddress) {
+  fseek(filePointer, getIndexOfBmpWithLsb(lastMatrixIndex, 0, bitmapAddress), SEEK_SET);
   char byte;
-  for (int i = 0; i <= maxIndex; i++) {
+  for (int i = 0; i <= lastMatrixIndex; i++) {
     for (int j = 0; j < 8; j++) {
       byte = getByteInFileWithLsb(filePointer);
-      value[i][j] = byte;
+      matrix[i][j] = byte;
     }
   }
 }
 
-void readContentInFIle(FILE *filePointer, char **matrix, int matrixIndex, int16_t arrayIndex, uint32_t bitmapAddress) {
-  fseek(filePointer, getIndexValue(matrixIndex, 0, bitmapAddress), SEEK_SET);
-  setLshContentValue(matrix, arrayIndex, filePointer);
-}
-
-void updateLsbHeader(uint8_t index, FILE *filePointer, int matrixIndex, int16_t arrayIndex, uint32_t bitmapAddress) {
+void setIndexHeaderInFile(FILE *filePointer, int matrixIndex, int16_t indexValue, uint32_t bitmapAddress) {
   fseek(filePointer, (bitmapAddress + (matrixIndex * sizeof(int16_t) * BYTE)), SEEK_SET);
-  putIndexInFileWithLsb(arrayIndex, filePointer);
+  putIndexInFileWithLsb(indexValue, filePointer);
 }
 
-void updateLsbContent(char *content, FILE *filePointer) {
-  for (int i = 0; i < 8; i++) {
+void setMatrixContentInFile(char *content, FILE *filePointer) {
+  for (int i = 0; i < (MATRIX_LENGHT -1); i++) {
     putByteInFileWithLsb(content[i], filePointer);
   }
 }

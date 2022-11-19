@@ -6,6 +6,7 @@
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 
 #include "fusemount.h"
+#include "lsb.h"
 
 // Global variables
 // Matrixes
@@ -51,12 +52,12 @@ void freeMatrixes() {
 
 void add_dir(const char *dir_name) {
   dirIndex++;
-  updateLsbHeader(DIRR_IDX);
+  setIndexHeaderInFile(bmpInfo->filePointer, DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
 
   strcpy(dirArray[dirIndex], dir_name);
-  uint32_t offset = getIndexValue(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
+  uint32_t offset = getIndexOfBmpWithLsb(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
   fseek(bmpInfo->filePointer, offset, SEEK_SET);
-  updateLsbContent(dirArray[dirIndex], bmpInfo->filePointer);
+  setMatrixContentInFile(dirArray[dirIndex], bmpInfo->filePointer);
 }
 
 int is_dir(const char *path) {
@@ -70,20 +71,22 @@ int is_dir(const char *path) {
 }
 
 void add_file(const char *filename) {
+  uint32_t offset;
   fileIndex++;
-  updateLsbHeader(FILE_IDX);
+  setIndexHeaderInFile(FILE_IDX);
 
   strcpy(filesArray[fileIndex], filename);
-  uint32_t offset = getIndexValue(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
+  offset = getIndexOfBmpWithLsb(FILE_IDX, fileIndex, bmpInfo->bmpHeader->bitmapAddress);
   fseek(bmpInfo->filePointer, offset, SEEK_SET);
-  updateLsbContent(filesArray[fileIndex], bmpInfo->filePointer);
+  setMatrixContentInFile(filesArray[fileIndex], bmpInfo->filePointer);
 
   fileContentIndex++;
-  updateLsbHeader(FILE_CONTENT_IDX);
+  setIndexHeaderInFile(FILE_CONTENT_IDX);
 
   strcpy(filesContentArray[fileContentIndex], "\0");
-  fseek(bmpInfo->filePointer, getIndexValue(FILE_CONTENT_IDX, fileContentIndex, bmpInfo->bmpHeader), SEEK_SET);
-  updateLsbContent(filesContentArray[fileContentIndex]);
+  offset = getIndexOfBmpWithLsb(FILE_CONTENT_IDX, fileContentIndex, bmpInfo->bmpHeader->bitmapAddress);
+  fseek(bmpInfo->filePointer, offset, SEEK_SET);
+  setMatrixContentInFile(filesContentArray[fileContentIndex]);
 }
 
 int is_file(const char *path) {
@@ -113,8 +116,9 @@ void write_to_file(const char *path, const char *new_content) {
     return;
 
   strcpy(filesContentArray[file_idx], new_content);
-  fseek(bmpInfo->filePointer, getIndexValue(FILE_CONTENT_IDX, file_idx, bmpInfo->bmpHeader), SEEK_SET);
-  updateLsbContent(filesContentArray[file_idx]);
+  uint32_t offset = getIndexOfBmpWithLsb(DIRR_IDX, dirIndex, bmpInfo->bmpHeader->bitmapAddress);
+  fseek(bmpInfo->filePointer, offset, SEEK_SET);
+  setMatrixContentInFile(filesContentArray[file_idx]);
 }
 
 // Fuser methods to be used
@@ -222,13 +226,18 @@ int main(int argc, char **argv) {
   if (argc == 7) {
     char *option = (char *)argv[6];
     if ((strcmp(option, "init") == 0)) {
-      createLsbMethodHeader(bmpInfo->filePointer);
+      createIndexesHeaderInFile(bmpInfo->filePointer);
       fseek(bmpInfo->filePointer, bmpInfo->bmpHeader->bitmapAddress, SEEK_SET);
     }
   }
 
-  readLsbMethodHeader(bmpInfo->filePointer);
-  readContentInFIle();
+  setIndexHeaderPointer(&dirIndex, bmpInfo->filePointer);
+  setIndexHeaderPointer(&fileIndex, bmpInfo->filePointer);
+  setIndexHeaderPointer(&fileContentIndex, bmpInfo->filePointer);
+
+  readMatrixContentInFIle();
+  readMatrixContentInFIle();
+  readMatrixContentInFIle();
 
   argc = 5;
 

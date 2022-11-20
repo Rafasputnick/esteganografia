@@ -5,7 +5,7 @@
 // https://en.wikipedia.org/wiki/BMP_file_format
 // https://maastaar.net/fuse/linux/filesystem/c/2019/09/28/writing-less-simple-yet-stupid-filesystem-using-FUSE-in-C/
 
-#include "fusemount.h"
+#include "fusermount.h"
 
 // Global variables
 // Matrixes

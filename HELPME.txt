@@ -1,0 +1,12 @@
+# basta usar o subsituir o argumento 1 eh o diretorio e o 2 o path da imagem
+make run dir="arg1" img="arg2"
+
+make test dir="arg1"
+
+make umount dir="arg1"
+ 
+make umount_f dir="arg1"
+
+make open dir="arg1" img="arg2"
+
+make print dir="arg1"

@@ -60,10 +60,8 @@ void add_dir(const char *dir_name) {
 }
 
 int is_dir(const char *path) {
-  path++; // Eliminating "/" in the path
-
   for (int curr_idx = 0; curr_idx <= dirIndex; curr_idx++)
-    if (strcmp(path, dirMatrix[curr_idx]) == 0)
+    if (strcmp((path + 1), dirMatrix[curr_idx]) == 0)
       return 1;
 
   return 0;
@@ -89,20 +87,16 @@ void add_file(const char *filename) {
 }
 
 int is_file(const char *path) {
-  path++; // Eliminating "/" in the path
-
   for (int curr_idx = 0; curr_idx <= fileIndex; curr_idx++)
-    if (strcmp(path, filesMatrix[curr_idx]) == 0)
+    if (strcmp((path + 1), filesMatrix[curr_idx]) == 0)
       return 1;
 
   return 0;
 }
 
 int get_file_index(const char *path) {
-  path++; // Eliminating "/" in the path
-
   for (int curr_idx = 0; curr_idx <= fileIndex; curr_idx++)
-    if (strcmp(path, filesMatrix[curr_idx]) == 0)
+    if (strcmp((path + 1), filesMatrix[curr_idx]) == 0)
       return curr_idx;
 
   return -1;
@@ -123,12 +117,10 @@ void write_to_file(const char *path, const char *new_content) {
 // Fuser methods to be used
 
 static int do_getattr(const char *path, struct stat *s) {
-  s->st_uid = getuid();     // The owner of the file/directory is the user who
-                            // mounted the filesystem
-  s->st_gid = getgid();     // The group of the file/directory is the same as the
-                            // group of the user who mounted the filesystem
-  s->st_atime = time(NULL); // The last "a"ccess of the file/directory is right now
-  s->st_mtime = time(NULL); // The last "m"odification of the file/directory is right now
+  s->st_uid = getuid();
+  s->st_gid = getgid();
+  s->st_atime = time(NULL);
+  s->st_mtime = time(NULL);
 
   if (strcmp(path, "/") == 0 || is_dir(path) == 1) {
     s->st_mode = S_IFDIR | 0755;
@@ -149,9 +141,7 @@ static int do_readdir(const char *path, void *buffer, fuse_fill_dir_t filler, of
   filler(buffer, ".", NULL, 0);  // Current Directory
   filler(buffer, "..", NULL, 0); // Parent Directory
 
-  if (strcmp(path, "/") == 0) // If the user is trying to show the files/directories of the root
-                              // directory show the following
-  {
+  if (strcmp(path, "/") == 0) {
     for (int curr_idx = 0; curr_idx <= dirIndex; curr_idx++)
       filler(buffer, dirMatrix[curr_idx], NULL, 0);
 
@@ -182,8 +172,7 @@ static int do_mkdir(const char *path, mode_t mode) {
 }
 
 static int do_mknod(const char *path, mode_t mode, dev_t rdev) {
-  path++;
-  add_file(path);
+  add_file((path + 1));
 
   return 0;
 }
